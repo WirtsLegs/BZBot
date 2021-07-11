@@ -52,7 +52,7 @@ async def askYesNoQuestion(info_tuple, question, descrip=None, timeout=60):
     reply = reply if not reply == "cancel" else False
     if not reply:
         return False
-    return reply if reply == "yes" else "no"
+    return "Yes" if reply.lower() == "yes" else "No"
 
 
 async def askQuestion(info_tuple, question, descrip=None, timeout=60):

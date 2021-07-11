@@ -102,10 +102,14 @@ async def on_raw_reaction_add(payload):
     message = await channel.fetch_message(payload.message_id)
     user = bot.get_user(payload.user_id)
     if msgid in active_events.keys():
-        handle = await active_events[msgid].react_handle(payload.emoji, message, user, bot)
-        if handle:
+        handle = await active_events[msgid].react_handle(payload.emoji, message, payload.member, user, bot)
+        if handle == True:
             with open(str(msgid)+".pkl", 'wb') as outf:
                 dill.dump(active_events[msgid], outf, protocol=0)
+        elif handle == "DELETE":
+            await message.delete()
+            active_events.pop(msgid)
+            os.remove(str(msgid)+".pkl")
 
 
 for file in os.listdir("./"):

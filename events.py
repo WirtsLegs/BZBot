@@ -1,4 +1,5 @@
 import discord
+import questions
 import config
 import pytz
 import dill
@@ -45,7 +46,7 @@ class DCSEvent:
         print(self.player_roles)
         return
 
-    async def react_handle(self, emoji, message, user, bot):
+    async def react_handle(self, emoji, message, member, user, bot):
         full_emote = "<:"+emoji.name+":"+str(emoji.id)+">"
         userTuple = (user.id, user.display_name)
         if full_emote not in [x[1] for x in self.roles]:
@@ -73,7 +74,19 @@ class DCSEvent:
                 except ValueError:
                     pass
             elif full_emote == config.deleteReact:
-                dmChannel = await user.send("Are you sure you want to delete the event? (yes/no) NOT IMPLEMENTED YET")
+                print(config.admin_roles)
+                print(member.roles[0].id)
+
+                if userTuple == self.author or any(item.id in config.admin_roles for item in member.roles):
+                    dmChannel = await user.send(embed=self.generateEmbed())
+                    reply = await questions.askYesNoQuestion((user, bot, dmChannel.channel), "Are you sure you want to delete the above event?","Type 'yes' to confirm")
+                    if reply == "Yes":
+                        await user.send("Deleting Event")
+                        return "DELETE"
+                    else:
+                        await user.send("such a tease, guess I wont delete it")
+                else:
+                    await user.send("No delete for you!")
             elif full_emote == config.editReact:
                 dmChannel = await user.send("Are you sure you want to edit the event? (yes/no) NOT IMPLEMENTED YET")
             else:
