@@ -7,15 +7,19 @@ import asyncio
 import config
 import dateparser
 import pytz
+import dill
 from discord.ext import commands
 from dotenv import load_dotenv
 
 load_dotenv()
+
+intents = discord.Intents.default()
+intents.reactions = True
+intents.members = True
 TOKEN = os.getenv('DISCORD_TOKEN')
-bot = commands.Bot("$")
+bot = commands.Bot("$", intents=intents)
 bot.bot_channel = config.bot_channel
 bot.mission_channel = config.mission_channels
-
 
 active_events = {}
 
@@ -46,7 +50,7 @@ async def event(ctx):
             emb.add_field(name=str(i) + " : " + options[i], value="\u200b", inline=False)
         await ctx.author.send(embed=emb)
         print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
+        user_reply = await bot.wait_for('message', check=check, timeout=timeout)
         print("User replied")
         try:
             reply = int(user_reply.content)
@@ -58,7 +62,7 @@ async def event(ctx):
                 return options[int(user_reply.content)]
             else:
                 await ctx.author.send("invalid response, please select from the available options")
-                result = await askMultChoice(question, options)
+                result = await askMultChoice(question, description, options, timeout)
                 return result
 
     async def askYesNoQuestion(question, descrip=None, timeout=60):
@@ -103,9 +107,49 @@ async def event(ctx):
             return askDateTimeQuestion(question, descrip, timeout)
         else:
             return d
+    async def gatherRoles(question, description, options, timeout=60,roles=None):
+        keys = list(options.keys())
+        rng = range(len(keys))
+        if roles is None:
+            roles = []
+        if description is not None:
+            emb = discord.Embed(title=question, description=description)
+        else:
+            emb = discord.Embed(title=question)
+        emb.set_footer(text="type 'done' when all airframes selected, type 'cancel' to cancel mission creation")
+
+        for i in rng:
+            if keys[i] in roles:
+                emb.add_field(name=str(i) + " : " + options[keys[i]]+"-selected", value="\u200b", inline=True)
+            else:
+                emb.add_field(name=str(i) + " : " + options[keys[i]], value="\u200b", inline=True)
+        await ctx.author.send(embed=emb)
+        print("Waiting for reply...")
+        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
+        print("User replied")
+        try:
+            reply = int(user_reply.content)
+        except ValueError:
+            if user_reply.content == "cancel":
+                return False
+            elif user_reply.content == "done":
+                return roles
+        else:
+            if reply in rng:
+                if not keys[reply] in roles:
+                    roles.append(keys[reply])
+                else:
+                    roles.remove(keys[reply])
+                print(roles)
+                result = await gatherRoles(question, description, options, timeout, roles)
+                return result
+            else:
+                await ctx.author.send("invalid response, please select from the available options")
+                result = await gatherRoles(question, description, options, timeout, roles)
+                return result
 
     try:
-        event_args = {"author": ctx.author.display_name}
+        event_args = {"author": (ctx.author.id, ctx.author.display_name)}
         for q in config.question_list:
             reply = ""
             if q[4] == 0:
@@ -116,6 +160,9 @@ async def event(ctx):
                 reply = await askYesNoQuestion(q[1], q[2], q[3])
             elif q[4] == 3:
                 reply = await askDateTimeQuestion(q[1], q[2], q[3])
+            elif q[4] == 4:
+                reply = await gatherRoles(q[1], q[2], q[5], q[3])
+                print(reply)
             if not reply:
                 emb = discord.Embed(title="Right, well fuck you too!")
                 await ctx.author.send(embed=emb)
@@ -127,15 +174,22 @@ async def event(ctx):
             "You dirty motherfucker! You ignored me!!??\nI'll have you know I graduated top of my class in the Navy Seals, and I've been involved in numerous secret raids on Al-Quaeda, and I have over 300 confirmed kills. I am trained in gorilla warfare and I'm the top sniper in the entire US armed forces. You are nothing to me but just another target.")
         return
     else:
-        ev = events.Event(event_args)
+        ev = events.DCSEvent(event_args)
         em = ev.generateEmbed()
         event_msg = await ctx.channel.send(embed=em)
+        for a in ev.roles:
+            await event_msg.add_reaction(a[1])
+        await event_msg.add_reaction(config.tentativeReact)
+        await event_msg.add_reaction(config.declinedReact)
         active_events[event_msg.id] = ev
-
+        ev.eID = str(event_msg.id)
+        with open(ev.eID+".pkl", 'wb') as outf:
+            dill.dump(ev, outf, protocol=0)
 
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
+
 
 
 @bot.event
@@ -145,6 +199,28 @@ async def on_message(message):
             # SENDS BACK A MESSAGE TO THE CHANNEL.
             await message.channel.send("hey dirtbag")
     await bot.process_commands(message)
+
+@bot.event
+async def on_raw_reaction_add(payload):
+    if payload.user_id == bot.user.id:
+        return
+    msgid = payload.message_id
+    channel = bot.get_channel(payload.channel_id)
+    message = await channel.fetch_message(payload.message_id)
+    user = bot.get_user(payload.user_id)
+    if msgid in active_events.keys():
+        handle = await active_events[msgid].react_handle(payload.emoji, message, user, bot)
+        if handle:
+            with open(str(msgid)+".pkl", 'wb') as outf:
+                dill.dump(active_events[msgid], outf, protocol=0)
+
+
+for file in os.listdir("./"):
+
+    if file.endswith(".pkl"):
+        with open(file,"rb") as f:
+            active_events[int(file.split(".")[0])] = dill.load(f)
+
 
 
 bot.run(TOKEN)
