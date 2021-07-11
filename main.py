@@ -5,6 +5,7 @@ import discord
 import events
 import asyncio
 import config
+import questions
 import dateparser
 import pytz
 import dill
@@ -31,137 +32,26 @@ async def ping(ctx):
 
 @bot.command(name="event")
 async def event(ctx):
-    if not ctx.channel.id in config.mission_channels:
+    if ctx.channel.id not in config.mission_channels:
         return
     dmChannel = await ctx.author.send("It looks like you're trying to create a mission...")
 
-    def check(message):
-        return message.author == ctx.author and message.channel == dmChannel.channel
-
-    async def askMultChoice(question, description, options, timeout=60):
-        rng = range(len(options))
-        if description is not None:
-            emb = discord.Embed(title=question, description=description)
-        else:
-            emb = discord.Embed(title=question)
-        emb.set_footer(text="type 'cancel' to cancel mission creation")
-
-        for i in rng:
-            emb.add_field(name=str(i) + " : " + options[i], value="\u200b", inline=False)
-        await ctx.author.send(embed=emb)
-        print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=timeout)
-        print("User replied")
-        try:
-            reply = int(user_reply.content)
-        except ValueError:
-            if user_reply.content == "cancel":
-                return False
-        else:
-            if reply in rng:
-                return options[int(user_reply.content)]
-            else:
-                await ctx.author.send("invalid response, please select from the available options")
-                result = await askMultChoice(question, description, options, timeout)
-                return result
-
-    async def askYesNoQuestion(question, descrip=None, timeout=60):
-        emb = discord.Embed(title=question, description=("\u200b" if descrip is None else descrip))
-        emb.set_footer(text="type 'cancel' to cancel mission creation")
-        await ctx.author.send(embed=emb)
-        print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
-        print("User replied")
-        reply = user_reply.content
-        reply = reply if not reply == "cancel" else False
-        if not reply:
-            return False
-        return reply if reply == "yes" else "no"
-
-    async def askQuestion(question, descrip=None, timeout=60):
-        emb = discord.Embed(title=question, description=("\u200b" if descrip is None else descrip))
-        emb.set_footer(text="type 'cancel' to cancel mission creation")
-        await ctx.author.send(embed=emb)
-        print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
-        print("User replied")
-        reply = user_reply.content
-        return reply if not reply == "cancel" else False
-
-    async def askDateTimeQuestion(question, descrip=None, timeout=60):
-        emb = discord.Embed(title=question, description=("\u200b" if descrip is None else descrip))
-        emb.set_footer(text="type 'cancel' to cancel mission creation")
-        await ctx.author.send(embed=emb)
-        print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
-        print("User replied")
-        reply = user_reply.content
-        if reply == "cancel":
-            return False
-        try:
-            d = dateparser.parse(reply)
-            if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-                d = d.replace(tzinfo=pytz.utc)
-
-        except ValueError:
-            return askDateTimeQuestion(question, descrip, timeout)
-        else:
-            return d
-    async def gatherRoles(question, description, options, timeout=60,roles=None):
-        keys = list(options.keys())
-        rng = range(len(keys))
-        if roles is None:
-            roles = []
-        if description is not None:
-            emb = discord.Embed(title=question, description=description)
-        else:
-            emb = discord.Embed(title=question)
-        emb.set_footer(text="type 'done' when all airframes selected, type 'cancel' to cancel mission creation")
-
-        for i in rng:
-            if keys[i] in roles:
-                emb.add_field(name=str(i) + " : " + options[keys[i]]+"-selected", value="\u200b", inline=True)
-            else:
-                emb.add_field(name=str(i) + " : " + options[keys[i]], value="\u200b", inline=True)
-        await ctx.author.send(embed=emb)
-        print("Waiting for reply...")
-        user_reply = await bot.wait_for('message', check=check, timeout=20.0)
-        print("User replied")
-        try:
-            reply = int(user_reply.content)
-        except ValueError:
-            if user_reply.content == "cancel":
-                return False
-            elif user_reply.content == "done":
-                return roles
-        else:
-            if reply in rng:
-                if not keys[reply] in roles:
-                    roles.append(keys[reply])
-                else:
-                    roles.remove(keys[reply])
-                print(roles)
-                result = await gatherRoles(question, description, options, timeout, roles)
-                return result
-            else:
-                await ctx.author.send("invalid response, please select from the available options")
-                result = await gatherRoles(question, description, options, timeout, roles)
-                return result
-
     try:
         event_args = {"author": (ctx.author.id, ctx.author.display_name)}
+        info = (ctx.author, bot, dmChannel.channel)
         for q in config.question_list:
             reply = ""
             if q[4] == 0:
-                reply = await askQuestion(q[1], q[2], q[3])
+                reply = await questions.askQuestion(info, q[1], q[2], q[3])
             elif q[4] == 1:
-                reply = await askMultChoice(q[1], q[2], q[5], q[3])
+                reply = await questions.askMultChoice(info, q[1], q[2], q[5], q[3])
             elif q[4] == 2:
-                reply = await askYesNoQuestion(q[1], q[2], q[3])
+                reply = await questions.askYesNoQuestion(info, q[1], q[2], q[3])
             elif q[4] == 3:
-                reply = await askDateTimeQuestion(q[1], q[2], q[3])
+                reply = await questions.askDateTimeQuestion(info, q[1], q[2], q[3])
             elif q[4] == 4:
-                reply = await gatherRoles(q[1], q[2], q[5], q[3])
+                print(q[5])
+                reply = await questions.gatherRoles(info, q[1], q[2], q[5], q[3])
                 print(reply)
             if not reply:
                 emb = discord.Embed(title="Right, well fuck you too!")
@@ -181,10 +71,13 @@ async def event(ctx):
             await event_msg.add_reaction(a[1])
         await event_msg.add_reaction(config.tentativeReact)
         await event_msg.add_reaction(config.declinedReact)
+        await event_msg.add_reaction(config.deleteReact)
+        await event_msg.add_reaction(config.editReact)
         active_events[event_msg.id] = ev
         ev.eID = str(event_msg.id)
         with open(ev.eID+".pkl", 'wb') as outf:
             dill.dump(ev, outf, protocol=0)
+        await ctx.message.delete()
 
 @bot.event
 async def on_ready():

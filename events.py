@@ -73,7 +73,9 @@ class DCSEvent:
                 except ValueError:
                     pass
             elif full_emote == config.deleteReact:
+                dmChannel = await user.send("Are you sure you want to delete the event? (yes/no) NOT IMPLEMENTED YET")
             elif full_emote == config.editReact:
+                dmChannel = await user.send("Are you sure you want to edit the event? (yes/no) NOT IMPLEMENTED YET")
             else:
                 await message.remove_reaction(emoji, user)
                 return False
@@ -107,7 +109,7 @@ class DCSEvent:
     def generateEmbed(self):
         embed = discord.Embed(title=self.title, description=self.description, timestamp=self.timeUTC)
         embed.set_footer(text="Local Time")
-        embed.add_field(name="Author", value=self.author, inline=False)
+        embed.add_field(name="Author", value=self.author[1], inline=False)
         embed.add_field(name="Event Time", value=self.timeUTC.strftime("%m/%d/%Y, %H:%M:%S UTC"), inline=False)
         embed.add_field(name="Difficulty", value=str(self.difficulty) + "/10", inline=True)
         embed.add_field(name="Map", value=self.terrain, inline=True)
