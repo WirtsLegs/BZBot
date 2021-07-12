@@ -8,7 +8,9 @@ tentativeReact = "<:tentative:863657977377194014>"
 declinedReact = "<:declined:863650407624212491>"
 editReact = "<:edit:863785768156528640>"
 deleteReact = "<:delete:863786011317370890>"
-summaryReact = "summary"
+configReact = "<:edit:863785768156528640>"
+
+event_auto_delete = 21600
 
 maps = ["Caucasas", "Marianas", "Persian Gulf", "Syria", "Normandy", "Channel"]
 

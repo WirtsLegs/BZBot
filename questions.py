@@ -1,6 +1,7 @@
 import discord
 import dateparser
 import pytz
+import tzlocal
 import config
 
 
@@ -87,7 +88,9 @@ async def askDateTimeQuestion(info_tuple, question, descrip=None, timeout=60):
     try:
         d = dateparser.parse(reply)
         if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
-            d = d.replace(tzinfo=pytz.utc)
+            tz = tzlocal.get_localzone()
+            d = d.replace(tzinfo=tz).astimezone(pytz.utc)
+
 
     except ValueError:
         return askDateTimeQuestion(question, descrip, timeout)
@@ -108,7 +111,7 @@ async def gatherRoles(info_tuple, question, description, options, timeout=60, ro
         emb = discord.Embed(title=question, description=description)
     else:
         emb = discord.Embed(title=question)
-    emb.set_footer(text="type 'done' when all airframes selected, type 'cancel' to cancel mission creation")
+    emb.set_footer(text="type 'done' when all roles selected, type 'cancel' to cancel mission creation")
 
     for i in rng:
         if keys[i] in roles:

@@ -7,9 +7,10 @@ import asyncio
 import config
 import questions
 import dateparser
+import datetime
 import pytz
 import dill
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,6 +26,28 @@ bot.mission_channel = config.mission_channels
 active_events = {}
 
 
+@bot.event
+async def on_ready():
+    print(f'{bot.user} has connected to Discord!')
+    bot.loop.create_task(time_management())
+    time_management.start()
+
+
+@tasks.loop(seconds=10)
+async def time_management():
+    for e in list(active_events.keys()):
+        e_time = active_events[e].timeUTC
+        now = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
+        remaining = (e_time - now).total_seconds()
+        if remaining < (-1*config.event_auto_delete):
+            chan = bot.get_channel(active_events[e].channel)
+            message = await chan.fetch_message(e)
+            await message.delete()
+            active_events.pop(e)
+            os.remove(str(e) + ".pkl")
+
+
+
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.channel.send("pong")
@@ -38,6 +61,7 @@ async def event(ctx):
 
     try:
         event_args = {"author": (ctx.author.id, ctx.author.display_name)}
+        event_args['channel'] = ctx.channel.id
         info = (ctx.author, bot, dmChannel.channel)
         for q in config.question_list:
             reply = ""
@@ -71,18 +95,12 @@ async def event(ctx):
             await event_msg.add_reaction(a[1])
         await event_msg.add_reaction(config.tentativeReact)
         await event_msg.add_reaction(config.declinedReact)
-        await event_msg.add_reaction(config.deleteReact)
-        await event_msg.add_reaction(config.editReact)
+        await event_msg.add_reaction(config.configReact)
         active_events[event_msg.id] = ev
         ev.eID = str(event_msg.id)
-        with open(ev.eID+".pkl", 'wb') as outf:
+        with open(ev.eID + ".pkl", 'wb') as outf:
             dill.dump(ev, outf, protocol=0)
         await ctx.message.delete()
-
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has connected to Discord!')
-
 
 
 @bot.event
@@ -92,6 +110,7 @@ async def on_message(message):
             # SENDS BACK A MESSAGE TO THE CHANNEL.
             await message.channel.send("hey dirtbag")
     await bot.process_commands(message)
+
 
 @bot.event
 async def on_raw_reaction_add(payload):
@@ -104,21 +123,19 @@ async def on_raw_reaction_add(payload):
     if msgid in active_events.keys():
         handle = await active_events[msgid].react_handle(payload.emoji, message, payload.member, user, bot)
         if handle == True:
-            with open(str(msgid)+".pkl", 'wb') as outf:
+            with open(str(msgid) + ".pkl", 'wb') as outf:
                 dill.dump(active_events[msgid], outf, protocol=0)
         elif handle == "DELETE":
             await message.delete()
             active_events.pop(msgid)
-            os.remove(str(msgid)+".pkl")
+            os.remove(str(msgid) + ".pkl")
 
 
 for file in os.listdir("./"):
 
     if file.endswith(".pkl"):
-        with open(file,"rb") as f:
+        with open(file, "rb") as f:
             active_events[int(file.split(".")[0])] = dill.load(f)
-
-
 
 bot.run(TOKEN)
 
