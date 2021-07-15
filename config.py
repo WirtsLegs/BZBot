@@ -6,11 +6,10 @@ admin_roles = [863057821166600202, 863115120468426803, 863084151380901889]
 
 tentativeReact = "<:tentative:863657977377194014>"
 declinedReact = "<:declined:863650407624212491>"
-editReact = "<:edit:863785768156528640>"
-deleteReact = "<:delete:863786011317370890>"
 configReact = "<:edit:863785768156528640>"
 
 event_auto_delete = 21600
+event_reminder = 3600
 
 maps = ["Caucasas", "Marianas", "Persian Gulf", "Syria", "Normandy", "Channel"]
 
@@ -21,7 +20,6 @@ airframes = {
     "Gazelle": "<:sa342:863582436674502678>",
     "Huey": "<:UH1HHuey:863582424016486411>",
     "JF-17": "<:JF17:863582409089089597>",
-
 }
 
 question_list = [("title", "What is the title of your mission?",

@@ -18,6 +18,7 @@ class DCSEvent:
         self.declined = []
         self.tentative = []
         self.eID = 0
+        self.reminderSent = False
         self.channel = args['channel']
         for r in args['airframes']:
             self.roles.append((r, config.airframes[r]))
@@ -62,20 +63,6 @@ class DCSEvent:
                     self.declined.remove(userTuple)
                 except ValueError:
                     pass
-            elif full_emote == config.deleteReact:
-                print(config.admin_roles)
-                print(member.roles[0].id)
-
-                if userTuple == self.author or any(item.id in config.admin_roles for item in member.roles):
-                    dmChannel = await user.send(embed=self.generateEmbed())
-                    reply = await questions.askYesNoQuestion((user, bot, dmChannel.channel), "Are you sure you want to delete the above event?","Type 'yes' to confirm")
-                    if reply == "Yes":
-                        await user.send("Deleting Event")
-                        return "DELETE"
-                    else:
-                        await user.send("such a tease, guess I wont delete it")
-                else:
-                    await user.send("No delete for you!")
             elif full_emote == config.configReact:
                 config_role = False
                 if userTuple == self.author or any(item.id in config.admin_roles for item in member.roles):
@@ -127,6 +114,8 @@ class DCSEvent:
         pl = players.copy()
         padding = 4-len(pl)
         ten = []
+        count1 = 0
+        count2 = 0
 
         if airframe:
             for p in pl:
@@ -134,73 +123,105 @@ class DCSEvent:
                     ten.append(p)
                 else:
                     result = result + p[1] + "\n"
+                    count1 = count1+1
             if len(ten) > 0:
                 if not splitlist:
-                    if len(pl) > len(ten):
-                        result = result + "----\n"
+                    #if len(pl) > len(ten):
+                    #    result = result + "----\n"
                     for p in ten:
-                        result = result + p[1] + "\n"
+                        result = result + "*" + p[1] + "\n"
+                        count1 = count1 + 1
                 else:
                     for p in ten:
-                        result2 = result + p[1] + "\n"
+                        result2 = result2 + p[1] + "\n"
+                        count2 = count2 + 1
         else:
             for p in pl:
                 result = result + p[1] + "\n"
+                count1 = count1 + 1
         if not splitlist:
             if padding > 0:
                 result = result+("\n\u200b"*padding)
-        return result, result2
+        return result, result2, count1, count2
 
-    def getAcceptedTentative(self,tentative=False):
+    def getAccepted(self):
+        for k in list(self.player_roles.keys()):
+            accepted=[]
+            for p in self.player_roles[k]:
+                if p not in self.tentative:
+                    accepted.append(p)
+            return accepted
+    def getAcceptedTentativeString(self,tentative=False):
         playerlist = "\u200b"
         count=0
-        for k in list(self.player_roles.keys()):
-            for p in self.player_roles[k]:
-                if p not in self.tentative and not tentative:
-                    count = count+1
-                    playerlist = playerlist + p[1] + "\n"
-                elif p in self.tentative and tentative:
-                    count = count+1
-                    playerlist = playerlist + p[1] + "\n"
+        used=[]
+        if not tentative:
+            for k in list(self.player_roles.keys()):
+                for p in self.player_roles[k]:
+                    if p not in self.tentative:
+                        if p not in used:
+                            count = count + 1
+                            playerlist = playerlist + p[1] + "\n"
+                        used.append(p)
+        else:
+            for p in self.tentative:
+                count = count+1
+                playerlist = playerlist + p[1] + "\n"
+
         return playerlist, count
 
     def generateEmbed(self):
         embed = discord.Embed(title=self.title, description=self.description, timestamp=self.timeUTC)
         embed.set_footer(text="Local Time")
         embed.add_field(name="Author", value=self.author[1], inline=False)
-        embed.add_field(name="Event Time", value=self.timeUTC.strftime("%m/%d/%Y, %H:%M:%S UTC"), inline=False)
+        time = str(self.timeUTC.timestamp()).split(".")[0]
+        embed.add_field(name="Event Time: "+self.timeUTC.strftime("%b %d, %Y %H:%M:%S ZULU"), value="**Local Time: <t:" + time + ":f>**", inline=False)
         embed.add_field(name="Difficulty", value=str(self.difficulty) + "/10", inline=True)
         embed.add_field(name="Map", value=self.terrain, inline=True)
         embed.add_field(name="ModPack", value=self.modpack, inline=True)
         embed.add_field(name="\u200b", value="\u200b", inline=False)
         for a in self.roles:
-            players = self.generatePlayerString(self.player_roles[a])[0]
-            embed.add_field(name=a[1]+" "+a[0], value=players, inline=True)
+            plist = self.generatePlayerString(self.player_roles[a])
+            players = plist[0]
+            count = plist[2]
+            embed.add_field(name=a[1]+" "+a[0]+" ("+str(count)+")", value=players, inline=True)
 
         embed.add_field(name="\u200b", value="\u200b", inline=False)
-        players = self.generatePlayerString(self.tentative, False)[0]
-        embed.add_field(name=config.tentativeReact+" Tentative", value=players, inline=True, )
-        players = self.generatePlayerString(self.declined)[0]
-        embed.add_field(name=config.declinedReact+" Grounded", value=players, inline=True)
+        plist = self.generatePlayerString(self.tentative, False)
+        players = plist[0]
+        count = plist[2]
+        embed.add_field(name=config.tentativeReact+" Tentative ("+str(count)+")", value=players, inline=True, )
+        plist = self.generatePlayerString(self.declined)
+        players = plist[0]
+        count = plist[2]
+        embed.add_field(name=config.declinedReact+" Grounded ("+str(count)+")", value=players, inline=True)
 
         return embed
 
     def generateSummary(self):
         embed = discord.Embed(title=self.title, description="Summary for this event is as follows", timestamp=self.timeUTC)
         embed.add_field(name="Event Time", value=self.timeUTC.strftime("%m/%d/%Y, %H:%M:%S UTC"), inline=False)
-        accepted = self.getAcceptedTentative()
+        accepted = self.getAcceptedTentativeString()
         embed.add_field(name="Accepted("+str(accepted[1])+")", value=accepted[0], inline=False)
         embed.add_field(name="\u200b", value="\u200b", inline=False)
         for a in self.roles:
-            players = self.generatePlayerString(self.player_roles[a], splitlist=True)[0]
-            embed.add_field(name=a[1] + " " + a[0], value=players, inline=True)
-        tentative = accepted = self.getAcceptedTentative(True)
+            plist = self.generatePlayerString(self.player_roles[a], splitlist=True)
+            players = plist[0]
+            count = plist[2]
+            if count > 0:
+                embed.add_field(name=a[1] + " " + a[0]+" ("+str(count)+")", value=players, inline=True)
+        tentative = accepted = self.getAcceptedTentativeString(True)
         embed.add_field(name="Tentative("+str(tentative[1])+")", value=tentative[0], inline=False)
         embed.add_field(name="\u200b", value="\u200b", inline=False)
         for a in self.roles:
-            players = self.generatePlayerString(self.player_roles[a], splitlist=True)[1]
-            embed.add_field(name=a[1] + " " + a[0], value=players, inline=True)
-        players = self.generatePlayerString(self.declined)[0]
-        embed.add_field(name="Declined", value=players, inline=False)
+            plist = self.generatePlayerString(self.player_roles[a], splitlist=True)
+            players = plist[1]
+            count = plist[3]
+            if count > 0:
+                embed.add_field(name=a[1] + " " + a[0]+" ("+str(count)+")", value=players, inline=True)
+        plist = self.generatePlayerString(self.declined)
+        players = plist[0]
+        count = plist[2]
+        embed.add_field(name="Declined ("+str(count)+")", value=players, inline=False)
         embed.set_footer(text="Local Time")
         return embed

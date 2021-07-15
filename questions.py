@@ -5,7 +5,6 @@ import tzlocal
 import config
 
 
-
 async def askMultChoice(info_tuple, question, description, options, timeout=60):#infortuple=(user,bot,channel)
     rng = range(len(options))
 
@@ -83,13 +82,16 @@ async def askDateTimeQuestion(info_tuple, question, descrip=None, timeout=60):
     user_reply = await info_tuple[1].wait_for('message', check=check, timeout=20.0)
     print("User replied")
     reply = user_reply.content
+    print(reply)
     if reply == "cancel":
         return False
     try:
-        d = dateparser.parse(reply)
+        d = dateparser.parse(reply, settings={'PREFER_DATES_FROM': 'future', 'RETURN_AS_TIMEZONE_AWARE': True})
+        print(d)
         if d.tzinfo is None or d.tzinfo.utcoffset(d) is None:
             tz = tzlocal.get_localzone()
-            d = d.replace(tzinfo=tz).astimezone(pytz.utc)
+            d = d.replace(tzinfo=tz)
+        d = d.astimezone(pytz.utc)
 
 
     except ValueError:

@@ -6,7 +6,6 @@ import events
 import asyncio
 import config
 import questions
-import dateparser
 import datetime
 import pytz
 import dill
@@ -29,6 +28,7 @@ active_events = {}
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
+    print("bot is using discord version: " + discord.__version__)
     bot.loop.create_task(time_management())
     time_management.start()
 
@@ -39,12 +39,32 @@ async def time_management():
         e_time = active_events[e].timeUTC
         now = datetime.datetime.utcnow().replace(tzinfo=pytz.utc)
         remaining = (e_time - now).total_seconds()
+
         if remaining < (-1*config.event_auto_delete):
             chan = bot.get_channel(active_events[e].channel)
             message = await chan.fetch_message(e)
             await message.delete()
             active_events.pop(e)
             os.remove(str(e) + ".pkl")
+        elif not active_events[e].reminderSent and remaining < config.event_reminder:
+            print("reminder time")
+            active_events[e].reminderSent = True
+            chan = bot.get_channel(active_events[e].channel)
+            message = await chan.fetch_message(e)
+            url = message.jump_url
+            emba = discord.Embed(title="1 Hour Notice to Move",
+                                 description="A mission you have signed up for starts in 1 hour!: [" + active_events[e].title + "](" + url + ")")
+            embr = discord.Embed(title="1 Hour Notice to Move",
+                                 description="A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" + active_events[e].title + "](" + url + ")")
+
+            for a in active_events[e].getAccepted():
+                user = bot.get_user(a[0])
+                await user.send(embed=emba)
+            for a in active_events[e].tentative:
+                user = bot.get_user(a[0])
+                await user.send(embed=embr)
+
+
 
 
 
@@ -100,6 +120,9 @@ async def event(ctx):
         ev.eID = str(event_msg.id)
         with open(ev.eID + ".pkl", 'wb') as outf:
             dill.dump(ev, outf, protocol=0)
+        emb = discord.Embed(title="Mission Posted",
+                             description="Your mission has been posted: [" + ev.title + "](" + event_msg.jump_url + ")")
+        await ctx.author.send(embed=emb)
         await ctx.message.delete()
 
 
