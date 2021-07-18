@@ -29,7 +29,7 @@ active_events = {}
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
     print("bot is using discord version: " + discord.__version__)
-    bot.loop.create_task(time_management())
+    #bot.loop.create_task(time_management())
     time_management.start()
 
 
