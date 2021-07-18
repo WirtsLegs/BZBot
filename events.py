@@ -28,11 +28,23 @@ class DCSEvent:
 
         self.timeUTC = args["event_time"].astimezone(pytz.utc)
 
+    async def send_message(self, bot, title, message, accepted=True, tentative=False, footer=None):
+        emb = discord.Embed(title=title, description=message)
+        if footer:
+            emb.add_field(name="\u200b", value=footer)
+        if accepted:
+            for p in self.getAccepted():
+                user = bot.get_user(p[0])
+                await user.send(embed=emb)
+        if tentative:
+            for p in self.tentative:
+                user = bot.get_user(p[0])
+                await user.send(embed=emb)
+
 
     def write_event(self):
         with open(self.eID+".pkl", 'wb') as outf:
             dill.dump(self, outf, protocol=0)
-        print(self.player_roles)
         return
 
     async def react_handle(self, emoji, message, member, user, bot):
@@ -70,7 +82,7 @@ class DCSEvent:
 
                 dmChannel = await user.send("\u200b")
                 if config_role:
-                    reply = await questions.askMultChoice((user, bot, dmChannel.channel), "Please select an option:", None, ['Summary', 'Edit', 'Delete'])
+                    reply = await questions.askMultChoice((user, bot, dmChannel.channel), "Please select an option:", None, ['Summary', 'PM People', 'Edit', 'Delete'], timeout=60)
                 else:
                     reply = "Summary"
 
@@ -78,6 +90,27 @@ class DCSEvent:
                     await user.send(embed=self.generateSummary())
                 elif reply == "Edit":
                     await user.send("Editing not implemented yet")
+                elif reply == "PM People":
+
+                    target = await questions.askMultChoice((user, bot, dmChannel.channel), "Who would you like to PM:",
+                                                          None, ['All', 'Accepted', 'Tentative'],timeout=60)
+                    content = await questions.askQuestion((user, bot, dmChannel.channel), "What is your message?",
+                                                          None, timeout=300)
+                    if content == None:
+                        return
+                    chan = bot.get_channel(self.channel)
+                    msg = await chan.fetch_message(self.eID)
+                    url = msg.jump_url
+                    if target == "All":
+                        await self.send_message(bot, "Message related to: " + self.title, content,
+                                          accepted=True, tentative=True, footer="Link: " + "[" + self.title + "](" + url + ")")
+                    elif target == "Accepted":
+                        await self.send_message(bot, "Message related to: " + self.title, content,
+                                          accepted=True, tentative=False, footer="Link: " + "[" + self.title + "](" + url + ")")
+                    elif target == "Tentative":
+                        await self.send_message(bot, "Message related to: " + self.title, content,
+                                          accepted=False, tentative=True, footer="Link: " + "[" + self.title + "](" + url + ")")
+
                 elif reply == "Delete":
                     reply = await questions.askYesNoQuestion((user, bot, dmChannel.channel),
                                                              "Are you sure you want to delete the above event?",
@@ -150,7 +183,7 @@ class DCSEvent:
             for p in self.player_roles[k]:
                 if p not in self.tentative:
                     accepted.append(p)
-            return accepted
+        return accepted
     def getAcceptedTentativeString(self,tentative=False):
         playerlist = "\u200b"
         count=0

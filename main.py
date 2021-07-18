@@ -52,17 +52,22 @@ async def time_management():
             chan = bot.get_channel(active_events[e].channel)
             message = await chan.fetch_message(e)
             url = message.jump_url
-            emba = discord.Embed(title="1 Hour Notice to Move",
-                                 description="A mission you have signed up for starts in 1 hour!: [" + active_events[e].title + "](" + url + ")")
-            embr = discord.Embed(title="1 Hour Notice to Move",
-                                 description="A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" + active_events[e].title + "](" + url + ")")
-
-            for a in active_events[e].getAccepted():
-                user = bot.get_user(a[0])
-                await user.send(embed=emba)
-            for a in active_events[e].tentative:
-                user = bot.get_user(a[0])
-                await user.send(embed=embr)
+            #emba = discord.Embed(title="1 Hour Notice to Move",
+            #                     description="A mission you have signed up for starts in 1 hour!: [" + active_events[e].title + "](" + url + ")")
+            #embr = discord.Embed(title="1 Hour Notice to Move",
+            #                     description="A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" + active_events[e].title + "](" + url + ")")
+            active_events[e].send_message(bot, "1 Hour Notice to Move",
+                                          "A mission you have signed up for starts in 1 hour!: [" + active_events[
+                                              e].title + "](" + url + ")", accepted=True, tentative=False)
+            active_events[e].send_message(bot, "1 Hour Notice to Move",
+                                          "A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" +
+                                          active_events[e].title + "](" + url + ")", accepted=False, tentative=True)
+           # for a in active_events[e].getAccepted():
+           #     user = bot.get_user(a[0])
+           #     await user.send(embed=emba)
+           # for a in active_events[e].tentative:
+           #     user = bot.get_user(a[0])
+           #     await user.send(embed=embr)
 
 
 
@@ -86,16 +91,16 @@ async def event(ctx):
         for q in config.question_list:
             reply = ""
             if q[4] == 0:
-                reply = await questions.askQuestion(info, q[1], q[2], q[3])
+                reply = await questions.askQuestion(info, q[1], q[2], timeout=q[3])
             elif q[4] == 1:
-                reply = await questions.askMultChoice(info, q[1], q[2], q[5], q[3])
+                reply = await questions.askMultChoice(info, q[1], q[2], q[5], timeout=q[3])
             elif q[4] == 2:
-                reply = await questions.askYesNoQuestion(info, q[1], q[2], q[3])
+                reply = await questions.askYesNoQuestion(info, q[1], q[2], timeout=q[3])
             elif q[4] == 3:
-                reply = await questions.askDateTimeQuestion(info, q[1], q[2], q[3])
+                reply = await questions.askDateTimeQuestion(info, q[1], q[2], timeout=q[3])
             elif q[4] == 4:
                 print(q[5])
-                reply = await questions.gatherRoles(info, q[1], q[2], q[5], q[3])
+                reply = await questions.gatherRoles(info, q[1], q[2], q[5], timeout=q[3])
                 print(reply)
             if not reply:
                 emb = discord.Embed(title="Right, well fuck you too!")

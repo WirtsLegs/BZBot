@@ -5,7 +5,7 @@ import tzlocal
 import config
 
 
-async def askMultChoice(info_tuple, question, description, options, timeout=60):#infortuple=(user,bot,channel)
+async def askMultChoice(info_tuple, question, description, options, timeout=60):
     rng = range(len(options))
 
     def check(message):
