@@ -30,4 +30,4 @@ question_list = [("title", "What is the title of your mission?",
                  ("difficulty", "Please input a number from 0 - 10 for the difficulty", None, 60, 0),
                  ("modpack", "Is the BZ Modpack required?", "type yes for yes, anything else for no", 60, 2),
                  ("event_time", "Please input date and time with timezone", "Acceptable formats include:\nFriday at 9pm UTC\nTomorrow at 18:00 PST\nNow\nIn 1 hour CEST\nYYYY-MM-DD 7:00 PM EDT", 120, 3),
-                 ("airframes", "Select Airframes:", "Reply 'done' when all airframes selected", 60, 4, airframes)]
+                 ("roles", "Select Airframes:", "Reply 'done' when all airframes selected", 60, 4, airframes)]

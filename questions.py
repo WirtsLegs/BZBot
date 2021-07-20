@@ -32,8 +32,33 @@ async def askMultChoice(info_tuple, question, description, options, timeout=60):
         if reply in rng:
             return options[int(user_reply.content)]
         else:
-            await info_tuple[0].send("invalid response, please select from the available options")
-            result = await askMultChoice(question, description, options, timeout)
+            await info_tuple[0].send("invalid response, please select from the available options.")
+            result = await askMultChoice(info_tuple, question, description, options, timeout=timeout)
+            return result
+
+async def ask_edit(info_tuple, question, embed, options, timeout=60, re_ask=False):
+    rng = range(len(options))
+    def check(message):
+        return message.author == info_tuple[0] and message.channel == info_tuple[2]
+    if not re_ask:
+        emb = discord.Embed(title=question)
+        emb.set_footer(text="type 'cancel' to cancel editing")
+        await info_tuple[0].send(embed=emb)
+        await info_tuple[0].send(embed=embed)
+    print("Waiting for reply...")
+    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=timeout)
+    print("User replied")
+    try:
+        reply = int(user_reply.content)
+    except ValueError:
+        if user_reply.content == "cancel":
+            return False
+    else:
+        if reply in rng:
+            return options[int(user_reply.content)]
+        else:
+            await info_tuple[0].send("invalid response, please select from the available options.")
+            result = await ask_edit(info_tuple, question, embed, options, timeout=timeout, re_ask=True)
             return result
 
 
@@ -46,7 +71,7 @@ async def askYesNoQuestion(info_tuple, question, descrip=None, timeout=60):
     emb.set_footer(text="type 'cancel' to cancel mission creation")
     await info_tuple[0].send(embed=emb)
     print("Waiting for reply...")
-    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=20.0)
+    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=timeout)
     print("User replied")
     reply = user_reply.content
     reply = reply if not reply == "cancel" else False
@@ -64,7 +89,7 @@ async def askQuestion(info_tuple, question, descrip=None, timeout=60):
     emb.set_footer(text="type 'cancel' to cancel mission creation")
     await info_tuple[0].send(embed=emb)
     print("Waiting for reply...")
-    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=20.0)
+    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=timeout)
     print("User replied")
     reply = user_reply.content
     return reply if not reply == "cancel" else False
@@ -95,7 +120,7 @@ async def askDateTimeQuestion(info_tuple, question, descrip=None, timeout=60):
 
 
     except ValueError:
-        return askDateTimeQuestion(question, descrip, timeout)
+        return askDateTimeQuestion(question, descrip, timeout=timeout)
     else:
         return d
 
@@ -122,7 +147,7 @@ async def gatherRoles(info_tuple, question, description, options, timeout=60, ro
             emb.add_field(name=str(i) + " : " + options[keys[i]], value="\u200b", inline=True)
     await info_tuple[0].send(embed=emb)
     print("Waiting for reply...")
-    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=20.0)
+    user_reply = await info_tuple[1].wait_for('message', check=check, timeout=timeout)
     print("User replied")
     try:
         reply = int(user_reply.content)

@@ -33,7 +33,7 @@ async def on_ready():
     time_management.start()
 
 
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=30)
 async def time_management():
     for e in list(active_events.keys()):
         e_time = active_events[e].timeUTC
@@ -48,26 +48,21 @@ async def time_management():
             os.remove(str(e) + ".pkl")
         elif not active_events[e].reminderSent and remaining < config.event_reminder:
             print("reminder time")
-            active_events[e].reminderSent = True
             chan = bot.get_channel(active_events[e].channel)
             message = await chan.fetch_message(e)
             url = message.jump_url
-            #emba = discord.Embed(title="1 Hour Notice to Move",
-            #                     description="A mission you have signed up for starts in 1 hour!: [" + active_events[e].title + "](" + url + ")")
-            #embr = discord.Embed(title="1 Hour Notice to Move",
-            #                     description="A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" + active_events[e].title + "](" + url + ")")
-            active_events[e].send_message(bot, "1 Hour Notice to Move",
-                                          "A mission you have signed up for starts in 1 hour!: [" + active_events[
-                                              e].title + "](" + url + ")", accepted=True, tentative=False)
-            active_events[e].send_message(bot, "1 Hour Notice to Move",
-                                          "A mission you are tentative on is starting in 1 hour, please follow the link to confirm attendance: [" +
-                                          active_events[e].title + "](" + url + ")", accepted=False, tentative=True)
-           # for a in active_events[e].getAccepted():
-           #     user = bot.get_user(a[0])
-           #     await user.send(embed=emba)
-           # for a in active_events[e].tentative:
-           #     user = bot.get_user(a[0])
-           #     await user.send(embed=embr)
+            minutes = remaining // 60
+            await active_events[e].send_message(bot, "1 Hour Notice to Move",
+                                                "A mission you have signed up for starts in " + str(
+                                                    minutes) + " minutes!: [" + active_events[
+                                                    e].title + "](" + url + ")", accepted=True, tentative=False)
+            await active_events[e].send_message(bot, "1 Hour Notice to Move",
+                                                "A mission you are tentative on is starting in " + str(
+                                                    minutes) + " minutes, please follow the link to confirm attendance: [" +
+                                                active_events[e].title + "](" + url + ")", accepted=False,
+                                                tentative=True)
+            active_events[e].reminderSent = True
+            active_events[e].write_event()
 
 
 
@@ -114,7 +109,7 @@ async def event(ctx):
         return
     else:
         ev = events.DCSEvent(event_args)
-        em = ev.generateEmbed()
+        em = ev.generate_embed()
         event_msg = await ctx.channel.send(embed=em)
         for a in ev.roles:
             await event_msg.add_reaction(a[1])
