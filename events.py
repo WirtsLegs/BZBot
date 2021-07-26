@@ -193,7 +193,7 @@ class DCSEvent:
 
                 dmChannel = await user.send("\u200b")
                 if config_role:
-                    reply = await questions.askMultChoice((user, bot, dmChannel.channel), "Please select an option:", None, ['Summary', 'PM People', 'Edit', 'Delete'], timeout=60)
+                    reply = await questions.askMultChoice((user, bot, dmChannel.channel), "Please select an option:", None, ['Summary', 'PM People', 'Edit', 'Move Mission', 'Delete'], timeout=60)
                 else:
                     reply = "Summary"
 
@@ -214,6 +214,31 @@ class DCSEvent:
                         await message.add_reaction(config.tentativeReact)
                         await message.add_reaction(config.declinedReact)
                         await message.add_reaction(config.configReact)
+                elif reply == "Move Mission":
+                    channels={}
+                    for c in config.mission_channels:
+                        if c == self.channel:
+                            continue
+                        cn = bot.get_channel(c)
+                        channels[cn.name] = cn
+                        target = None
+                        target = await questions.askMultChoice((user, bot, dmChannel.channel),
+                                                               "Please select a channel",
+                                                               None, list(channels.keys()), timeout=120)
+                        if target is not None:
+                            destChn = channels[target]
+                            self.channel = destChn.id
+                            newMsg = await destChn.send(embed=self.generate_embed())
+                            for a in self.roles:
+                                await newMsg.add_reaction(a[1])
+                            await newMsg.add_reaction(config.tentativeReact)
+                            await newMsg.add_reaction(config.declinedReact)
+                            await newMsg.add_reaction(config.configReact)
+                            self.eID = newMsg.id
+                            return "MOVED"
+
+
+
                 elif reply == "PM People":
 
                     target = await questions.askMultChoice((user, bot, dmChannel.channel), "Who would you like to PM:",

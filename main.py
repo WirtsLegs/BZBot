@@ -1,6 +1,7 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import os
+from os import path
 import discord
 import events
 import asyncio
@@ -10,6 +11,7 @@ import datetime
 import pytz
 import dill
 from discord.ext import commands, tasks
+from discord.ext.commands import has_permissions, CheckFailure
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -20,9 +22,14 @@ intents.members = True
 TOKEN = os.getenv('DISCORD_TOKEN')
 bot = commands.Bot("$", intents=intents)
 bot.bot_channel = config.bot_channel
-bot.mission_channel = config.mission_channels
+bot.mission_channels = config.mission_channels
 
 active_events = {}
+
+if path.exists("missionchannels.cfg"):
+    with open("missionchannels.cfg", "r") as f:
+        lines = [int(line.strip()) for line in f]
+    config.mission_channels=lines
 
 
 @bot.event
@@ -52,13 +59,13 @@ async def time_management():
             message = await chan.fetch_message(e)
             url = message.jump_url
             minutes = remaining // 60
-            await active_events[e].send_message(bot, "1 Hour Notice to Move",
+            await active_events[e].send_message(bot, "Notice to Move",
                                                 "A mission you have signed up for starts in " + str(
-                                                    minutes) + " minutes!: [" + active_events[
+                                                    minutes).split(".")[0] + " minutes!: [" + active_events[
                                                     e].title + "](" + url + ")", accepted=True, tentative=False)
-            await active_events[e].send_message(bot, "1 Hour Notice to Move",
+            await active_events[e].send_message(bot, "Notice to Move",
                                                 "A mission you are tentative on is starting in " + str(
-                                                    minutes) + " minutes, please follow the link to confirm attendance: [" +
+                                                    minutes).split(".")[0] + " minutes, please follow the link to confirm attendance: [" +
                                                 active_events[e].title + "](" + url + ")", accepted=False,
                                                 tentative=True)
             active_events[e].reminderSent = True
@@ -66,12 +73,101 @@ async def time_management():
 
 
 
+@bot.command(name="missionchannel")
+@has_permissions(administrator=True)
+async def mission_channel(ctx):
+    chID = ctx.channel.id
+    emb = None
+    if chID in config.mission_channels:
+        config.mission_channels.remove(chID)
+        emb = discord.Embed(title="Channel removed from mission channels", description="The following are the currently active mission channels")
+    else:
+        config.mission_channels.append(chID)
+        emb = discord.Embed(title="Channel added to mission channels", description="The following are the currently active mission channels")
+
+    for c in config.mission_channels:
+        emb.add_field(name=bot.get_channel(c).name, value="\u200b")
+
+    await ctx.author.send(embed=emb)
+    await ctx.message.delete()
+    with open("missionchannels.cfg", "w") as f:
+        for c in config.mission_channels:
+            f.write('%s\n' % str(c))
 
 
 @bot.command(name="ping")
 async def ping(ctx):
     await ctx.channel.send("pong")
 
+@bot.command(name="purge")
+@has_permissions(administrator=True)
+async def purge(ctx):
+    print("got purge command")
+    #if not any(item.id in config.admin_roles for item in ctx.author.roles):
+    #    print("not admin")
+    #    return
+    dmChannel = None
+    def check(message):
+        return message.author == ctx.author and message.channel == dmChannel.channel
+
+    guild = ctx.message.guild
+
+    to_kick_new = []
+    to_kick_ghost = []
+    #ctx.message.author.guild_permissions.administrator
+    for member in guild.members:
+        if member.bot or member.guild_permissions.administrator:
+            continue
+        kick_newbro = False
+        kick_ghost = False
+        age = datetime.date.today() - member.joined_at.date()
+        if age.days > 30:
+            if not any(item.id in config.one_month for item in member.roles):
+                kick_newbro = True
+                kick_ghost = False
+        if age.days > 7:
+            if not any(item.id in config.one_week for item in member.roles):
+                kick_ghost = True
+                kick_newbro = False
+
+        if kick_newbro:
+            to_kick_new.append(member)
+        elif kick_ghost:
+            to_kick_ghost.append(member)
+    emb = discord.Embed(title="The following members will be kicked:", description="Please indicate yes or no if you would like to kick")
+    ghosted = ""
+    count = 0
+    for target in to_kick_ghost:
+        ghosted = ghosted + target.mention + "  "
+        if count == 4:
+            ghosted = ghosted + "\n"
+            count = 0
+    emb.add_field(name="Ghosted:", value=ghosted if len(ghosted) > 0 else "\u200b")
+    newcomers = ""
+    count = 0
+    for target in to_kick_new:
+        newcomers = newcomers + target.mention + "  "
+        if count == 4:
+            newcomers = newcomers + "\n"
+            count = 0
+    emb.add_field(name="Newcomers:", value=newcomers if len(newcomers) > 0 else "\u200b")
+    dmChannel = await ctx.author.send(embed=emb)
+
+    user_reply = await bot.wait_for('message', check=check, timeout=120)
+
+    reply = user_reply.content
+    reply = True if reply.lower() == "yes" else False
+    if reply:
+
+        for u in (to_kick_new+to_kick_ghost):
+            try:
+                await u.send(embed=discord.Embed(title="You have been kicked", description=config.kick_reason))
+                await u.kick(reason="kicked by bot for inactivity")
+            except:
+                continue
+
+        emb = discord.Embed(title="Purge Complete")
+        await ctx.author.send(embed=emb)
 
 @bot.command(name="event")
 async def event(ctx):
@@ -152,6 +248,12 @@ async def on_raw_reaction_add(payload):
             await message.delete()
             active_events.pop(msgid)
             os.remove(str(msgid) + ".pkl")
+        elif handle == "MOVED":
+            await message.delete()
+            ev = active_events.pop(msgid)
+            active_events[ev.eID] = ev
+            os.remove(str(msgid) + ".pkl")
+            ev.write_event()
 
 
 for file in os.listdir("./"):

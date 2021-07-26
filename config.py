@@ -1,6 +1,6 @@
-server_id = 863056195950870548
+server_id = <ID here>
 bot_channel = 863088197135106115
-mission_channels = [863056275759038494]
+mission_channels = []
 
 admin_roles = [863057821166600202, 863115120468426803, 863084151380901889]
 
@@ -31,3 +31,9 @@ question_list = [("title", "What is the title of your mission?",
                  ("modpack", "Is the BZ Modpack required?", "type yes for yes, anything else for no", 60, 2),
                  ("event_time", "Please input date and time with timezone", "Acceptable formats include:\nFriday at 9pm UTC\nTomorrow at 18:00 PST\nNow\nIn 1 hour CEST\nYYYY-MM-DD 7:00 PM EDT", 120, 3),
                  ("roles", "Select Airframes:", "Reply 'done' when all airframes selected", 60, 4, airframes)]
+
+#kick config down here
+#dont kick me brah
+one_week = [867822587517206528, 863057821166600202, 863115120468426803, 863084151380901889, 863256789931655222]
+one_month = [863057821166600202, 863115120468426803, 863084151380901889, 863256789931655222]
+kick_reason="This is a placeholder kick message to test a purge feature, guys go ahead and rejoin with https://discord.gg/bu8TRfzYUx"
